@@ -35,13 +35,15 @@ exploring the data, and getting acquainted with the 3 tables. */
 Write a SQL query to produce a list of the names of the facilities that do. */
 
 select name from Facilities
-where membercost = 0
+where membercost != 0
+
 
 name	
-Badminton Court
-Table Tennis
-Snooker Table
-Pool Table
+Tennis Court 1
+Tennis Court 2
+Massage Room 1
+Massage Room 2
+Squash Court
 
 
 /* Q2: How many facilities do not charge a fee to members? */
@@ -49,7 +51,9 @@ Pool Table
 select count(name) from Facilities
 where membercost = 0
 
-Ans : 4
+count(name)
+4
+
 
 /* Q3: Write an SQL query to show a list of facilities that charge a fee to members,
 where the fee is less than 20% of the facility's monthly maintenance cost.
@@ -128,7 +132,8 @@ on F.facid = B.facid
 where name like '%Tennis%'
 order by M.firstname
 
-Name	Facility	
+
+Name	name	
 Anna Mackenzie	Table Tennis
 Anne Baker	Tennis Court 1
 Anne Baker	Table Tennis
@@ -223,14 +228,28 @@ using(facid)
 left join Members as M
 using(memid)
 where starttime like '2012-09-14%'
+having (cost )>30
+
+Facility	Name	cost	
+Tennis Court 1	GUEST GUEST	75.0
+Tennis Court 1	GUEST GUEST	75.0
+Tennis Court 2	GUEST GUEST	75.0
+Tennis Court 2	GUEST GUEST	150.0
+Massage Room 1	GUEST GUEST	160.0
+Massage Room 1	GUEST GUEST	160.0
+Massage Room 1	Jemima Farrell	39.6
+Massage Room 1	GUEST GUEST	160.0
+Massage Room 2	GUEST GUEST	320.0
+Squash Court	GUEST GUEST	70.0
+Squash Court	GUEST GUEST	35.0
+Squash Court	GUEST GUEST	35.0
+
 
 
 /* Q9: This time, produce the same result as in Q8, but using a subquery. */
 
 
-select sub1.Facility, sub1.Name, sub1.cost
-from
-(select F.name as Facility, concat_ws(' ',M.firstname,M.surname) as Name, 
+select F.name as Facility, concat_ws(' ',M.firstname,M.surname) as Name, 
 case when memid = 0 then (sum * F.guestcost) 
 		 when memid !=0 then (sum * F.membercost) end as cost
 from(
@@ -241,8 +260,8 @@ group by facid, memid) as sub
 left join Facilities as F
 using(facid)
 left join Members as M
-using(memid)) as sub1
-where sub1.cost >30
+using(memid)
+having (cost) >30
 
 Facility	Name	cost	
 Tennis Court 1	GUEST GUEST	150.0
@@ -251,6 +270,7 @@ Massage Room 1	GUEST GUEST	480.0
 Massage Room 1	Jemima Farrell	59.4
 Massage Room 2	GUEST GUEST	320.0
 Squash Court	GUEST GUEST	140.0
+
 
 
 /* PART 2: SQLite
@@ -273,7 +293,9 @@ QUESTIONS:
 The output of facility name and total revenue, sorted by revenue. Remember
 that there's a different cost for guests and members! */
 
-select month, year, facid, tot_slots,member,
+select sub_rev.year,sub_rev.facid, sub_rev.name as Facility, sum(sub_rev.cost) as revenue
+from(
+select month, year, F.name, facid, tot_slots,member,
 case when member = 'Member' then ((tot_slots *F.membercost)-F.monthlymaintenance)
      else ((tot_slots * F.guestcost)-F.monthlymaintenance ) end as cost
 
@@ -290,415 +312,273 @@ end as member
 from Bookings 
 group by facid, member,month, year) as sub
 left join Facilities  as F
-using(facid)
+using(facid)) as sub_rev
+group by year , facid
+having  (Revenue) < 1000
+
+year	facid	Facility	revenue	
+2012	3	Table Tennis	120.0
+2012	5	Massage Room 2	-3545.4
+2012	7	Snooker Table	150.0
+2012	8	Pool Table	180.0
+
 
 /* Q11: Produce a report of members and who recommended them in alphabetic surname,firstname order */
 
-select distinct M.firstname as mem_firstname , M.surname as mem_surname, sub_query.firstname as rec_firstname , sub_query.surname as rec_surname
-from Members as M
-left join 
-(select distinct N.recommendedby , sub.firstname, sub.surname
-            from Members as N 
-           left join 
-            (select firstname , surname, memid  from Members 
-                     ) as sub
-			on sub.memid = N.recommendedby
-			where recommendedby != ' ') as sub_query
-on M.recommendedby = sub_query.recommendedby
 
-where M.recommendedby != ' '
+select distinct N.recommendedby , concat_ws(' ', M.firstname, M.surname) as Recommendor, concat_ws( ' ', N.firstname, N.surname) as Member
+            from Members as N 
+           left join Members as M
+on N.recommendedby = M.memid
+where N.recommendedby != ' '
+order by M.firstname
+
+recommendedby	Recommendor	Member	
+6	Burton Tracy	Ponder Stibbons
+1	Darren Smith	Jack Smith
+1	Darren Smith	Anna Mackenzie
+1	Darren Smith	Gerald Butters
+1	Darren Smith	Janice Joplette
+1	Darren Smith	Charles Owen
+11	David Jones	Douglas Jones
+15	Florence Bader	Ramnaresh Sarwin
+5	Gerald Butters	Matthew Genting
+4	Janice Joplette	Nancy Dare
+4	Janice Joplette	David Jones
+13	Jemima Farrell	David Pinker
+13	Jemima Farrell	Timothy Baker
+20	Matthew Genting	Henrietta Rumney
+30	Millicent Purview	John Hunt
+9	Ponder Stibbons	Florence Bader
+9	Ponder Stibbons	Anne Baker
+3	Tim Rownam	Tim Boothe
+16	Timothy Baker	Joan Coplin
+2	Tracy Smith	Millicent Purview
+2	Tracy Smith	Henry Worthington-Smyth
+2	Tracy Smith	Erica Crumpet
+
+
 
 /* Q12: Find the facilities with their usage by member, but not guests */
 
 select M.firstname, M.surname, F.name,
-extract(month from B.starttime) as month,
-extract(year from B.starttime) as year,
-count(B.slots) as 'Total Slots'
+	count(B.slots) as 'Total Slots'
 from Members as M
 inner join Bookings as B
-using(memid)
+	using(memid)
 left join Facilities as F
-on F.facid = B.facid
+	on F.facid = B.facid
 where memid !=0
-group by B.facid, B.memid , year , month
+group by B.facid, B.memid 
 
 
-firstname	surname	name	month	year	Total Slots	
-Tracy	Smith	Tennis Court 1	7	2012	21
-Tracy	Smith	Tennis Court 1	8	2012	6
-Tracy	Smith	Tennis Court 1	9	2012	3
-Tim	Rownam	Tennis Court 1	7	2012	4
-Tim	Rownam	Tennis Court 1	8	2012	1
-Tim	Rownam	Tennis Court 1	9	2012	1
-Janice	Joplette	Tennis Court 1	7	2012	10
-Janice	Joplette	Tennis Court 1	8	2012	5
-Janice	Joplette	Tennis Court 1	9	2012	4
-Gerald	Butters	Tennis Court 1	7	2012	22
-Gerald	Butters	Tennis Court 1	8	2012	23
-Gerald	Butters	Tennis Court 1	9	2012	12
-Burton	Tracy	Tennis Court 1	7	2012	4
-Burton	Tracy	Tennis Court 1	8	2012	16
-Burton	Tracy	Tennis Court 1	9	2012	11
-Nancy	Dare	Tennis Court 1	7	2012	4
-Nancy	Dare	Tennis Court 1	8	2012	13
-Nancy	Dare	Tennis Court 1	9	2012	8
-Tim	Boothe	Tennis Court 1	8	2012	4
-Ponder	Stibbons	Tennis Court 1	8	2012	1
-Charles	Owen	Tennis Court 1	8	2012	10
-Charles	Owen	Tennis Court 1	9	2012	7
-David	Jones	Tennis Court 1	8	2012	8
-David	Jones	Tennis Court 1	9	2012	17
-Anne	Baker	Tennis Court 1	8	2012	3
-Anne	Baker	Tennis Court 1	9	2012	3
-Jemima	Farrell	Tennis Court 1	9	2012	1
-Jack	Smith	Tennis Court 1	8	2012	12
-Jack	Smith	Tennis Court 1	9	2012	10
-Florence	Bader	Tennis Court 1	9	2012	1
-Timothy	Baker	Tennis Court 1	8	2012	5
-Timothy	Baker	Tennis Court 1	9	2012	9
-David	Pinker	Tennis Court 1	8	2012	4
-David	Pinker	Tennis Court 1	9	2012	12
-Matthew	Genting	Tennis Court 1	9	2012	1
-Joan	Coplin	Tennis Court 1	9	2012	7
-Ramnaresh	Sarwin	Tennis Court 1	9	2012	5
-Douglas	Jones	Tennis Court 1	9	2012	9
-David	Farrell	Tennis Court 1	9	2012	6
-John	Hunt	Tennis Court 1	9	2012	4
-Erica	Crumpet	Tennis Court 1	9	2012	1
-Darren	Smith	Tennis Court 2	7	2012	15
-Darren	Smith	Tennis Court 2	8	2012	1
-Darren	Smith	Tennis Court 2	9	2012	3
-Tracy	Smith	Tennis Court 2	7	2012	2
-Tim	Rownam	Tennis Court 2	7	2012	5
-Tim	Rownam	Tennis Court 2	8	2012	1
-Janice	Joplette	Tennis Court 2	7	2012	7
-Janice	Joplette	Tennis Court 2	9	2012	1
-Gerald	Butters	Tennis Court 2	7	2012	1
-Gerald	Butters	Tennis Court 2	8	2012	1
-Gerald	Butters	Tennis Court 2	9	2012	1
-Burton	Tracy	Tennis Court 2	7	2012	1
-Burton	Tracy	Tennis Court 2	8	2012	2
-Nancy	Dare	Tennis Court 2	7	2012	4
-Nancy	Dare	Tennis Court 2	8	2012	7
-Tim	Boothe	Tennis Court 2	7	2012	6
-Tim	Boothe	Tennis Court 2	8	2012	25
-Tim	Boothe	Tennis Court 2	9	2012	21
-Ponder	Stibbons	Tennis Court 2	8	2012	17
-Ponder	Stibbons	Tennis Court 2	9	2012	14
-Charles	Owen	Tennis Court 2	8	2012	19
-Charles	Owen	Tennis Court 2	9	2012	22
-David	Jones	Tennis Court 2	8	2012	13
-David	Jones	Tennis Court 2	9	2012	17
-Anne	Baker	Tennis Court 2	8	2012	16
-Anne	Baker	Tennis Court 2	9	2012	19
-Jemima	Farrell	Tennis Court 2	8	2012	1
-Jack	Smith	Tennis Court 2	9	2012	1
-Florence	Bader	Tennis Court 2	8	2012	3
-Florence	Bader	Tennis Court 2	9	2012	5
-Timothy	Baker	Tennis Court 2	8	2012	3
-Timothy	Baker	Tennis Court 2	9	2012	4
-Ramnaresh	Sarwin	Tennis Court 2	9	2012	11
-Henrietta	Rumney	Tennis Court 2	9	2012	1
-David	Farrell	Tennis Court 2	9	2012	1
-Millicent	Purview	Tennis Court 2	9	2012	1
-John	Hunt	Tennis Court 2	9	2012	4
-Darren	Smith	Badminton Court	7	2012	38
-Darren	Smith	Badminton Court	8	2012	55
-Darren	Smith	Badminton Court	9	2012	39
-Tracy	Smith	Badminton Court	7	2012	5
-Tracy	Smith	Badminton Court	8	2012	17
-Tracy	Smith	Badminton Court	9	2012	10
-Tim	Rownam	Badminton Court	7	2012	1
-Tim	Rownam	Badminton Court	8	2012	1
-Tim	Rownam	Badminton Court	9	2012	2
-Gerald	Butters	Badminton Court	7	2012	4
-Gerald	Butters	Badminton Court	8	2012	8
-Gerald	Butters	Badminton Court	9	2012	8
-Burton	Tracy	Badminton Court	8	2012	1
-Burton	Tracy	Badminton Court	9	2012	1
-Nancy	Dare	Badminton Court	7	2012	2
-Nancy	Dare	Badminton Court	8	2012	4
-Nancy	Dare	Badminton Court	9	2012	4
-Tim	Boothe	Badminton Court	7	2012	1
-Tim	Boothe	Badminton Court	8	2012	9
-Tim	Boothe	Badminton Court	9	2012	2
-Ponder	Stibbons	Badminton Court	8	2012	6
-Ponder	Stibbons	Badminton Court	9	2012	10
-firstname	surname	name	month	year	Total Slots	 
-Charles	Owen	Badminton Court	8	2012	4
-Charles	Owen	Badminton Court	9	2012	2
-David	Jones	Badminton Court	8	2012	4
-David	Jones	Badminton Court	9	2012	4
-Anne	Baker	Badminton Court	8	2012	1
-Anne	Baker	Badminton Court	9	2012	9
-Jemima	Farrell	Badminton Court	8	2012	3
-Jemima	Farrell	Badminton Court	9	2012	4
-Jack	Smith	Badminton Court	8	2012	6
-Jack	Smith	Badminton Court	9	2012	6
-Florence	Bader	Badminton Court	8	2012	5
-Florence	Bader	Badminton Court	9	2012	4
-Timothy	Baker	Badminton Court	8	2012	3
-Timothy	Baker	Badminton Court	9	2012	4
-David	Pinker	Badminton Court	8	2012	2
-David	Pinker	Badminton Court	9	2012	5
-Anna	Mackenzie	Badminton Court	8	2012	3
-Anna	Mackenzie	Badminton Court	9	2012	27
-Ramnaresh	Sarwin	Badminton Court	9	2012	7
-Douglas	Jones	Badminton Court	9	2012	2
-Henry	Worthington-Smyth	Badminton Court	9	2012	4
-Millicent	Purview	Badminton Court	9	2012	2
-Hyacinth	Tupperware	Badminton Court	9	2012	1
-John	Hunt	Badminton Court	9	2012	2
-Erica	Crumpet	Badminton Court	9	2012	2
-Darren	Smith	Table Tennis	7	2012	12
-Darren	Smith	Table Tennis	8	2012	9
-Darren	Smith	Table Tennis	9	2012	7
-Tracy	Smith	Table Tennis	7	2012	13
-Tracy	Smith	Table Tennis	8	2012	7
-Tracy	Smith	Table Tennis	9	2012	8
-Tim	Rownam	Table Tennis	7	2012	22
-Tim	Rownam	Table Tennis	8	2012	30
-Tim	Rownam	Table Tennis	9	2012	17
-Janice	Joplette	Table Tennis	7	2012	1
-Janice	Joplette	Table Tennis	8	2012	6
-Janice	Joplette	Table Tennis	9	2012	2
-Gerald	Butters	Table Tennis	8	2012	1
-Burton	Tracy	Table Tennis	8	2012	18
-Burton	Tracy	Table Tennis	9	2012	6
-Nancy	Dare	Table Tennis	8	2012	4
-Nancy	Dare	Table Tennis	9	2012	1
-Tim	Boothe	Table Tennis	8	2012	4
-Ponder	Stibbons	Table Tennis	8	2012	1
-Ponder	Stibbons	Table Tennis	9	2012	2
-Charles	Owen	Table Tennis	8	2012	18
-Charles	Owen	Table Tennis	9	2012	6
-David	Jones	Table Tennis	8	2012	7
-David	Jones	Table Tennis	9	2012	4
-Anne	Baker	Table Tennis	8	2012	1
-Jemima	Farrell	Table Tennis	8	2012	4
-Jemima	Farrell	Table Tennis	9	2012	8
-Jack	Smith	Table Tennis	8	2012	3
-Jack	Smith	Table Tennis	9	2012	2
-Florence	Bader	Table Tennis	8	2012	12
-Florence	Bader	Table Tennis	9	2012	30
-Timothy	Baker	Table Tennis	8	2012	9
-Timothy	Baker	Table Tennis	9	2012	15
-David	Pinker	Table Tennis	8	2012	4
-David	Pinker	Table Tennis	9	2012	13
-Matthew	Genting	Table Tennis	8	2012	5
-Matthew	Genting	Table Tennis	9	2012	21
-Anna	Mackenzie	Table Tennis	9	2012	16
-Joan	Coplin	Table Tennis	9	2012	21
-Ramnaresh	Sarwin	Table Tennis	9	2012	3
-Henry	Worthington-Smyth	Table Tennis	9	2012	3
-Millicent	Purview	Table Tennis	9	2012	6
-John	Hunt	Table Tennis	9	2012	1
-Erica	Crumpet	Table Tennis	9	2012	2
-Darren	Smith	Massage Room 1	7	2012	13
-Darren	Smith	Massage Room 1	8	2012	9
-Darren	Smith	Massage Room 1	9	2012	6
-Tracy	Smith	Massage Room 1	7	2012	3
-Tracy	Smith	Massage Room 1	8	2012	1
-Tracy	Smith	Massage Room 1	9	2012	2
-Tim	Rownam	Massage Room 1	7	2012	37
-Tim	Rownam	Massage Room 1	8	2012	23
-Tim	Rownam	Massage Room 1	9	2012	20
-Janice	Joplette	Massage Room 1	7	2012	5
-Janice	Joplette	Massage Room 1	8	2012	3
-Janice	Joplette	Massage Room 1	9	2012	4
-Gerald	Butters	Massage Room 1	7	2012	8
-Gerald	Butters	Massage Room 1	8	2012	13
-Gerald	Butters	Massage Room 1	9	2012	11
-Burton	Tracy	Massage Room 1	7	2012	4
-Burton	Tracy	Massage Room 1	8	2012	18
-Burton	Tracy	Massage Room 1	9	2012	9
-Nancy	Dare	Massage Room 1	7	2012	3
-Nancy	Dare	Massage Room 1	8	2012	7
-Nancy	Dare	Massage Room 1	9	2012	9
-Tim	Boothe	Massage Room 1	7	2012	4
-Tim	Boothe	Massage Room 1	8	2012	17
-Tim	Boothe	Massage Room 1	9	2012	15
-Ponder	Stibbons	Massage Room 1	8	2012	13
-Ponder	Stibbons	Massage Room 1	9	2012	6
-Charles	Owen	Massage Room 1	8	2012	8
-Charles	Owen	Massage Room 1	9	2012	3
-David	Jones	Massage Room 1	8	2012	10
-David	Jones	Massage Room 1	9	2012	9
-Anne	Baker	Massage Room 1	8	2012	1
-firstname	surname	name	month	year	Total Slots	 
-Anne	Baker	Massage Room 1	9	2012	2
-Jemima	Farrell	Massage Room 1	8	2012	9
-Jemima	Farrell	Massage Room 1	9	2012	20
-Jack	Smith	Massage Room 1	8	2012	11
-Jack	Smith	Massage Room 1	9	2012	16
-Timothy	Baker	Massage Room 1	8	2012	7
-Timothy	Baker	Massage Room 1	9	2012	17
-David	Pinker	Massage Room 1	8	2012	1
-David	Pinker	Massage Room 1	9	2012	2
-Matthew	Genting	Massage Room 1	8	2012	2
-Matthew	Genting	Massage Room 1	9	2012	23
-Anna	Mackenzie	Massage Room 1	9	2012	1
-Joan	Coplin	Massage Room 1	9	2012	1
-Ramnaresh	Sarwin	Massage Room 1	9	2012	8
-Henry	Worthington-Smyth	Massage Room 1	9	2012	1
-Hyacinth	Tupperware	Massage Room 1	9	2012	1
-John	Hunt	Massage Room 1	9	2012	3
-Erica	Crumpet	Massage Room 1	9	2012	2
-Tim	Rownam	Massage Room 2	7	2012	1
-Tim	Rownam	Massage Room 2	9	2012	1
-Janice	Joplette	Massage Room 2	7	2012	1
-Janice	Joplette	Massage Room 2	8	2012	1
-Gerald	Butters	Massage Room 2	7	2012	1
-Nancy	Dare	Massage Room 2	7	2012	1
-Nancy	Dare	Massage Room 2	8	2012	2
-Nancy	Dare	Massage Room 2	9	2012	2
-Charles	Owen	Massage Room 2	9	2012	2
-David	Jones	Massage Room 2	8	2012	3
-David	Jones	Massage Room 2	9	2012	1
-Anne	Baker	Massage Room 2	8	2012	2
-Jack	Smith	Massage Room 2	9	2012	1
-Florence	Bader	Massage Room 2	9	2012	2
-Matthew	Genting	Massage Room 2	8	2012	1
-Joan	Coplin	Massage Room 2	9	2012	2
-Ramnaresh	Sarwin	Massage Room 2	9	2012	3
-Darren	Smith	Squash Court	7	2012	8
-Darren	Smith	Squash Court	8	2012	5
-Darren	Smith	Squash Court	9	2012	1
-Tracy	Smith	Squash Court	7	2012	2
-Tracy	Smith	Squash Court	8	2012	1
-Tracy	Smith	Squash Court	9	2012	3
-Janice	Joplette	Squash Court	7	2012	6
-Janice	Joplette	Squash Court	8	2012	3
-Janice	Joplette	Squash Court	9	2012	5
-Gerald	Butters	Squash Court	7	2012	3
-Gerald	Butters	Squash Court	8	2012	4
-Gerald	Butters	Squash Court	9	2012	2
-Burton	Tracy	Squash Court	7	2012	3
-Burton	Tracy	Squash Court	8	2012	24
-Burton	Tracy	Squash Court	9	2012	8
-Tim	Boothe	Squash Court	7	2012	1
-Tim	Boothe	Squash Court	8	2012	6
-Tim	Boothe	Squash Court	9	2012	5
-Ponder	Stibbons	Squash Court	9	2012	2
-Charles	Owen	Squash Court	8	2012	4
-Charles	Owen	Squash Court	9	2012	3
-David	Jones	Squash Court	8	2012	4
-David	Jones	Squash Court	9	2012	4
-Anne	Baker	Squash Court	8	2012	21
-Anne	Baker	Squash Court	9	2012	28
-Jemima	Farrell	Squash Court	8	2012	6
-Jemima	Farrell	Squash Court	9	2012	2
-Jack	Smith	Squash Court	8	2012	4
-Jack	Smith	Squash Court	9	2012	5
-Florence	Bader	Squash Court	9	2012	2
-Timothy	Baker	Squash Court	8	2012	2
-Timothy	Baker	Squash Court	9	2012	3
-David	Pinker	Squash Court	8	2012	1
-David	Pinker	Squash Court	9	2012	2
-Anna	Mackenzie	Squash Court	9	2012	2
-Joan	Coplin	Squash Court	9	2012	1
-Ramnaresh	Sarwin	Squash Court	9	2012	2
-Douglas	Jones	Squash Court	9	2012	1
-Henrietta	Rumney	Squash Court	9	2012	2
-David	Farrell	Squash Court	9	2012	1
-Millicent	Purview	Squash Court	9	2012	1
-Hyacinth	Tupperware	Squash Court	9	2012	1
-John	Hunt	Squash Court	9	2012	1
-Darren	Smith	Snooker Table	7	2012	5
-Darren	Smith	Snooker Table	8	2012	3
-Darren	Smith	Snooker Table	9	2012	4
-Tracy	Smith	Snooker Table	7	2012	22
-Tracy	Smith	Snooker Table	8	2012	17
-Tracy	Smith	Snooker Table	9	2012	6
-Janice	Joplette	Snooker Table	7	2012	23
-Janice	Joplette	Snooker Table	8	2012	25
-Janice	Joplette	Snooker Table	9	2012	20
-Gerald	Butters	Snooker Table	7	2012	9
-Gerald	Butters	Snooker Table	8	2012	13
-Gerald	Butters	Snooker Table	9	2012	12
-Burton	Tracy	Snooker Table	7	2012	4
-Burton	Tracy	Snooker Table	8	2012	12
-Burton	Tracy	Snooker Table	9	2012	4
-Nancy	Dare	Snooker Table	7	2012	2
-Nancy	Dare	Snooker Table	8	2012	10
-Nancy	Dare	Snooker Table	9	2012	11
-Tim	Boothe	Snooker Table	7	2012	3
-Tim	Boothe	Snooker Table	8	2012	23
-Tim	Boothe	Snooker Table	9	2012	17
-Ponder	Stibbons	Snooker Table	8	2012	9
-firstname	surname	name	month	year	Total Slots	 
-Ponder	Stibbons	Snooker Table	9	2012	11
-Charles	Owen	Snooker Table	8	2012	6
-Charles	Owen	Snooker Table	9	2012	16
-David	Jones	Snooker Table	8	2012	2
-Jemima	Farrell	Snooker Table	8	2012	14
-Jemima	Farrell	Snooker Table	9	2012	7
-Jack	Smith	Snooker Table	8	2012	2
-Jack	Smith	Snooker Table	9	2012	3
-Florence	Bader	Snooker Table	8	2012	11
-Florence	Bader	Snooker Table	9	2012	22
-David	Pinker	Snooker Table	8	2012	7
-David	Pinker	Snooker Table	9	2012	9
-Matthew	Genting	Snooker Table	9	2012	1
-Anna	Mackenzie	Snooker Table	9	2012	7
-Joan	Coplin	Snooker Table	9	2012	10
-Ramnaresh	Sarwin	Snooker Table	9	2012	18
-Henrietta	Rumney	Snooker Table	9	2012	14
-David	Farrell	Snooker Table	9	2012	1
-Millicent	Purview	Snooker Table	9	2012	1
-Hyacinth	Tupperware	Snooker Table	9	2012	5
-Darren	Smith	Pool Table	7	2012	9
-Darren	Smith	Pool Table	8	2012	12
-Darren	Smith	Pool Table	9	2012	7
-Tracy	Smith	Pool Table	7	2012	15
-Tracy	Smith	Pool Table	8	2012	28
-Tracy	Smith	Pool Table	9	2012	18
-Tim	Rownam	Pool Table	7	2012	62
-Tim	Rownam	Pool Table	8	2012	97
-Tim	Rownam	Pool Table	9	2012	82
-Janice	Joplette	Pool Table	7	2012	10
-Janice	Joplette	Pool Table	8	2012	13
-Janice	Joplette	Pool Table	9	2012	4
-Gerald	Butters	Pool Table	7	2012	2
-Gerald	Butters	Pool Table	8	2012	1
-Gerald	Butters	Pool Table	9	2012	3
-Burton	Tracy	Pool Table	7	2012	2
-Burton	Tracy	Pool Table	8	2012	20
-Burton	Tracy	Pool Table	9	2012	8
-Nancy	Dare	Pool Table	7	2012	2
-Nancy	Dare	Pool Table	8	2012	10
-Nancy	Dare	Pool Table	9	2012	7
-Tim	Boothe	Pool Table	7	2012	1
-Tim	Boothe	Pool Table	8	2012	15
-Tim	Boothe	Pool Table	9	2012	9
-Ponder	Stibbons	Pool Table	8	2012	7
-Ponder	Stibbons	Pool Table	9	2012	5
-Charles	Owen	Pool Table	9	2012	1
-David	Jones	Pool Table	8	2012	5
-David	Jones	Pool Table	9	2012	3
-Anne	Baker	Pool Table	8	2012	7
-Anne	Baker	Pool Table	9	2012	5
-Jemima	Farrell	Pool Table	9	2012	1
-Jack	Smith	Pool Table	8	2012	5
-Jack	Smith	Pool Table	9	2012	2
-Florence	Bader	Pool Table	8	2012	8
-Florence	Bader	Pool Table	9	2012	15
-Timothy	Baker	Pool Table	8	2012	33
-Timothy	Baker	Pool Table	9	2012	52
-David	Pinker	Pool Table	8	2012	4
-David	Pinker	Pool Table	9	2012	5
-Matthew	Genting	Pool Table	8	2012	2
-Matthew	Genting	Pool Table	9	2012	16
-Anna	Mackenzie	Pool Table	8	2012	5
-Anna	Mackenzie	Pool Table	9	2012	65
-Joan	Coplin	Pool Table	9	2012	11
-Ramnaresh	Sarwin	Pool Table	9	2012	13
-Douglas	Jones	Pool Table	9	2012	2
-Henrietta	Rumney	Pool Table	9	2012	3
-David	Farrell	Pool Table	9	2012	25
-Henry	Worthington-Smyth	Pool Table	9	2012	33
-Millicent	Purview	Pool Table	9	2012	5
-Hyacinth	Tupperware	Pool Table	9	2012	8
+
+firstname	surname	name	Total Slots	
+Tracy	Smith	Tennis Court 1	30
+Tim	Rownam	Tennis Court 1	6
+Janice	Joplette	Tennis Court 1	19
+Gerald	Butters	Tennis Court 1	57
+Burton	Tracy	Tennis Court 1	31
+Nancy	Dare	Tennis Court 1	25
+Tim	Boothe	Tennis Court 1	4
+Ponder	Stibbons	Tennis Court 1	1
+Charles	Owen	Tennis Court 1	17
+David	Jones	Tennis Court 1	25
+Anne	Baker	Tennis Court 1	6
+Jemima	Farrell	Tennis Court 1	1
+Jack	Smith	Tennis Court 1	22
+Florence	Bader	Tennis Court 1	1
+Timothy	Baker	Tennis Court 1	14
+David	Pinker	Tennis Court 1	16
+Matthew	Genting	Tennis Court 1	1
+Joan	Coplin	Tennis Court 1	7
+Ramnaresh	Sarwin	Tennis Court 1	5
+Douglas	Jones	Tennis Court 1	9
+David	Farrell	Tennis Court 1	6
+John	Hunt	Tennis Court 1	4
+Erica	Crumpet	Tennis Court 1	1
+Darren	Smith	Tennis Court 2	19
+Tracy	Smith	Tennis Court 2	2
+Tim	Rownam	Tennis Court 2	6
+Janice	Joplette	Tennis Court 2	8
+Gerald	Butters	Tennis Court 2	3
+Burton	Tracy	Tennis Court 2	3
+Nancy	Dare	Tennis Court 2	11
+Tim	Boothe	Tennis Court 2	52
+Ponder	Stibbons	Tennis Court 2	31
+Charles	Owen	Tennis Court 2	41
+David	Jones	Tennis Court 2	30
+Anne	Baker	Tennis Court 2	35
+Jemima	Farrell	Tennis Court 2	1
+Jack	Smith	Tennis Court 2	1
+Florence	Bader	Tennis Court 2	8
+Timothy	Baker	Tennis Court 2	7
+Ramnaresh	Sarwin	Tennis Court 2	11
+Henrietta	Rumney	Tennis Court 2	1
+David	Farrell	Tennis Court 2	1
+Millicent	Purview	Tennis Court 2	1
+John	Hunt	Tennis Court 2	4
+Darren	Smith	Badminton Court	132
+Tracy	Smith	Badminton Court	32
+Tim	Rownam	Badminton Court	4
+Gerald	Butters	Badminton Court	20
+Burton	Tracy	Badminton Court	2
+Nancy	Dare	Badminton Court	10
+Tim	Boothe	Badminton Court	12
+Ponder	Stibbons	Badminton Court	16
+Charles	Owen	Badminton Court	6
+David	Jones	Badminton Court	8
+Anne	Baker	Badminton Court	10
+Jemima	Farrell	Badminton Court	7
+Jack	Smith	Badminton Court	12
+Florence	Bader	Badminton Court	9
+Timothy	Baker	Badminton Court	7
+David	Pinker	Badminton Court	7
+Anna	Mackenzie	Badminton Court	30
+Ramnaresh	Sarwin	Badminton Court	7
+Douglas	Jones	Badminton Court	2
+Henry	Worthington-Smyth	Badminton Court	4
+Millicent	Purview	Badminton Court	2
+Hyacinth	Tupperware	Badminton Court	1
+John	Hunt	Badminton Court	2
+Erica	Crumpet	Badminton Court	2
+Darren	Smith	Table Tennis	28
+Tracy	Smith	Table Tennis	28
+Tim	Rownam	Table Tennis	69
+Janice	Joplette	Table Tennis	9
+Gerald	Butters	Table Tennis	1
+Burton	Tracy	Table Tennis	24
+Nancy	Dare	Table Tennis	5
+Tim	Boothe	Table Tennis	4
+Ponder	Stibbons	Table Tennis	3
+Charles	Owen	Table Tennis	24
+David	Jones	Table Tennis	11
+Anne	Baker	Table Tennis	1
+Jemima	Farrell	Table Tennis	12
+Jack	Smith	Table Tennis	5
+Florence	Bader	Table Tennis	42
+Timothy	Baker	Table Tennis	24
+David	Pinker	Table Tennis	17
+Matthew	Genting	Table Tennis	26
+Anna	Mackenzie	Table Tennis	16
+Joan	Coplin	Table Tennis	21
+Ramnaresh	Sarwin	Table Tennis	3
+Henry	Worthington-Smyth	Table Tennis	3
+Millicent	Purview	Table Tennis	6
+John	Hunt	Table Tennis	1
+Erica	Crumpet	Table Tennis	2
+Darren	Smith	Massage Room 1	28
+Tracy	Smith	Massage Room 1	6
+Tim	Rownam	Massage Room 1	80
+Janice	Joplette	Massage Room 1	12
+Gerald	Butters	Massage Room 1	32
+Burton	Tracy	Massage Room 1	31
+Nancy	Dare	Massage Room 1	19
+firstname	surname	name	Total Slots	 
+Tim	Boothe	Massage Room 1	36
+Ponder	Stibbons	Massage Room 1	19
+Charles	Owen	Massage Room 1	11
+David	Jones	Massage Room 1	19
+Anne	Baker	Massage Room 1	3
+Jemima	Farrell	Massage Room 1	29
+Jack	Smith	Massage Room 1	27
+Timothy	Baker	Massage Room 1	24
+David	Pinker	Massage Room 1	3
+Matthew	Genting	Massage Room 1	25
+Anna	Mackenzie	Massage Room 1	1
+Joan	Coplin	Massage Room 1	1
+Ramnaresh	Sarwin	Massage Room 1	8
+Henry	Worthington-Smyth	Massage Room 1	1
+Hyacinth	Tupperware	Massage Room 1	1
+John	Hunt	Massage Room 1	3
+Erica	Crumpet	Massage Room 1	2
+Tim	Rownam	Massage Room 2	2
+Janice	Joplette	Massage Room 2	2
+Gerald	Butters	Massage Room 2	1
+Nancy	Dare	Massage Room 2	5
+Charles	Owen	Massage Room 2	2
+David	Jones	Massage Room 2	4
+Anne	Baker	Massage Room 2	2
+Jack	Smith	Massage Room 2	1
+Florence	Bader	Massage Room 2	2
+Matthew	Genting	Massage Room 2	1
+Joan	Coplin	Massage Room 2	2
+Ramnaresh	Sarwin	Massage Room 2	3
+Darren	Smith	Squash Court	14
+Tracy	Smith	Squash Court	6
+Janice	Joplette	Squash Court	14
+Gerald	Butters	Squash Court	9
+Burton	Tracy	Squash Court	35
+Tim	Boothe	Squash Court	12
+Ponder	Stibbons	Squash Court	2
+Charles	Owen	Squash Court	7
+David	Jones	Squash Court	8
+Anne	Baker	Squash Court	49
+Jemima	Farrell	Squash Court	8
+Jack	Smith	Squash Court	9
+Florence	Bader	Squash Court	2
+Timothy	Baker	Squash Court	5
+David	Pinker	Squash Court	3
+Anna	Mackenzie	Squash Court	2
+Joan	Coplin	Squash Court	1
+Ramnaresh	Sarwin	Squash Court	2
+Douglas	Jones	Squash Court	1
+Henrietta	Rumney	Squash Court	2
+David	Farrell	Squash Court	1
+Millicent	Purview	Squash Court	1
+Hyacinth	Tupperware	Squash Court	1
+John	Hunt	Squash Court	1
+Darren	Smith	Snooker Table	12
+Tracy	Smith	Snooker Table	45
+Janice	Joplette	Snooker Table	68
+Gerald	Butters	Snooker Table	34
+Burton	Tracy	Snooker Table	20
+Nancy	Dare	Snooker Table	23
+Tim	Boothe	Snooker Table	43
+Ponder	Stibbons	Snooker Table	20
+Charles	Owen	Snooker Table	22
+David	Jones	Snooker Table	2
+Jemima	Farrell	Snooker Table	21
+Jack	Smith	Snooker Table	5
+Florence	Bader	Snooker Table	33
+David	Pinker	Snooker Table	16
+Matthew	Genting	Snooker Table	1
+Anna	Mackenzie	Snooker Table	7
+Joan	Coplin	Snooker Table	10
+Ramnaresh	Sarwin	Snooker Table	18
+Henrietta	Rumney	Snooker Table	14
+David	Farrell	Snooker Table	1
+Millicent	Purview	Snooker Table	1
+Hyacinth	Tupperware	Snooker Table	5
+Darren	Smith	Pool Table	28
+Tracy	Smith	Pool Table	61
+Tim	Rownam	Pool Table	241
+Janice	Joplette	Pool Table	27
+Gerald	Butters	Pool Table	6
+Burton	Tracy	Pool Table	30
+Nancy	Dare	Pool Table	19
+Tim	Boothe	Pool Table	25
+Ponder	Stibbons	Pool Table	12
+Charles	Owen	Pool Table	1
+David	Jones	Pool Table	8
+Anne	Baker	Pool Table	12
+Jemima	Farrell	Pool Table	1
+Jack	Smith	Pool Table	7
+Florence	Bader	Pool Table	23
+Timothy	Baker	Pool Table	85
+David	Pinker	Pool Table	9
+Matthew	Genting	Pool Table	18
+Anna	Mackenzie	Pool Table	70
+Joan	Coplin	Pool Table	11
+Ramnaresh	Sarwin	Pool Table	13
+Douglas	Jones	Pool Table	2
+Henrietta	Rumney	Pool Table	3
+David	Farrell	Pool Table	25
+Henry	Worthington-Smyth	Pool Table	33
+firstname	surname	name	Total Slots	 
+Millicent	Purview	Pool Table	5
+Hyacinth	Tupperware	Pool Table	8
+
 
 
 /* Q13: Find the facilities usage by month, but not guests */

@@ -1,1 +1,17 @@
-Whatsapp Chat analysis using NLP and regular expressions (regex)
+Whatsapp Chat Analysis using Regex and NLP
+In this notebook I have done some analysis on the chat messages of one of my whatsapp group
+Steps followed:
+1.	Downloaded the chats in a text file and uploaded using OPEN file function
+2.	Dates and messages are separated out using Regex with pattern 
+'\d{1,2}/\d{1,2}/\d{2,4},\s\d{1,2}:\d{1,2}\s[A-Z]{2}'
+3.	Data is now converted into  2 columns : Dates and messages
+4.	Messages are now broken down into columns Users (who sent the message) and message using regex : 
+pattern_user = '\s-\s*[A-Za-z]*\s*[A-Za-z]*'
+pattern_msg = '\s-\s*[A-Za-z]*\s*[A-Za-z]*:'
+5.	Now final data is into 3 columns : Dates, User and Messages
+6.	Month is extracted using date function to do month wise analysis
+
+
+
+
+

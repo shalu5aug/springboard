@@ -1,4 +1,4 @@
-Whatsapp Chat Analysis using Regex and NLP
+# Whatsapp Chat Analysis using Regex and NLP
 In this notebook I have done some analysis on the chat messages of one of my whatsapp group
 Steps followed:
 1.	Downloaded the chats in a text file and uploaded using OPEN file function
